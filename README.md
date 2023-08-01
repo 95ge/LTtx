@@ -104,7 +104,8 @@ tx1.start_txg("test")                        #开启接收信道"test"消息的�
 祝大家使用愉快，欢迎加本人VX，共同探讨量化交易的开发乐趣。
 
 #### LTtx交流群：
-![图片](https://github.com/95ge/LTtx/assets/92923254/89066202-2a5e-4c87-a349-4c1a3c6a9cd2)
+![图片](https://github.com/95ge/LTtx/assets/92923254/dad71be6-0de4-45bd-ae89-975759f4ea3f)
+
 
 #### 本人VX：
 ![图片](https://github.com/95ge/LTtx/assets/92923254/fb34a8b2-8d34-45b0-827c-aed80f2dd788)
