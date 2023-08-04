@@ -14,20 +14,6 @@ import signal
 import queue
 import tabulate
 import hashlib
-import psutil
-
-
-# 创建一个Process对象，代表当前进程
-p = psutil.Process(os.getpid())
-
-# 获取当前进程的CPU亲和性
-print(p.cpu_affinity())
-
-# 将当前进程的CPU亲和性设置为只运行最后一颗CPU上
-p.cpu_affinity([p.cpu_affinity()[-1]])
-
-# 验证设置是否生效
-print(p.cpu_affinity())
 
 
 def get_local_ip():
@@ -71,12 +57,10 @@ def sys_show_on(data):
     connect_show_list.append(data)
 
 def handle_connect(client,address):
-     global id_code
      while True:
         # 接收客户端发过来的数据 循环为这个客户端服务多次
         recv_data = client.recv(1024)
         sys_show_on("%s:收到客户端请求连接的消息：%s" %(get_str_time(),recv_data.decode("utf-8")))
-        print("%s:收到客户端请求连接的消息：%s" %(get_str_time(),recv_data.decode("utf-8")))
         dict_data = json.loads(recv_data)
         con_type = dict_data['con_type']
         con_tocken = dict_data['tocken']
@@ -107,11 +91,6 @@ def handle_connect(client,address):
             handle_connect_file(client,address,dict_data)
             client.close()
             break
-        elif con_type == 'plus_mode':
-            id_code = id_code + 1
-            result = {'code':0,'msg':'plus mode连接成功','id_code':id_code}
-            start_thread(target = main_handle_push_plus,args=(client,))
-            send_msg(client,result)
         # 如果客户端发送的数据不为空那么就是需要服务
         else:
             result = '当前连接未通过'
@@ -119,8 +98,6 @@ def handle_connect(client,address):
             # print(result)
             client.close()
         break
-
-
 
 def handle_connect_file(client,address,dict_data):
     file_mode = dict_data['file_mode']
@@ -203,20 +180,6 @@ def recv_data_from_tx(client):
     recv_data = client.recv(bytes_len,socket.MSG_WAITALL)
     recv_data = json.loads(recv_data.decode('utf-8',errors='replace'))
     return recv_data
-
-def recv_data_from_tx_fast(client):
-    recv_bytes = client.recv(8,socket.MSG_WAITALL)
-    bytes_len = struct.unpack("Q",recv_bytes)[0]
-    recv_data = client.recv(bytes_len,socket.MSG_WAITALL)
-    recv_data = recv_data.decode('utf-8',errors='replace')
-    return recv_data
-
-def send_data_to_client_fast(client,msg):
-    msg = msg.encode('utf-8')
-    data_len = len(msg)
-    struct_bytes = struct.pack('Q', data_len)
-    client.sendall(struct_bytes)
-    client.sendall(msg)
         
 def send_data_to_client(client,msg):
     msg=json.dumps(msg).encode('utf-8')
@@ -225,16 +188,7 @@ def send_data_to_client(client,msg):
     client.sendall(struct_bytes)
     client.sendall(msg)
 
-def main_handle_push_plus(client):
-    while True:
-        recv_data = recv_data_from_tx_fast(client).rsplit(':who:')
-        who = recv_data[1]
-        if who in dict_client_push_group:
-            if len(dict_client_push_group[who]['group']) == 0:
-                pass
-            else:
-                dict_client_push_group[who]['que'].put((client,recv_data[0]))
-    
+
 
 def main_handle_msg_tx(client,address,C_que):
     sys_show_on(get_str_time()+':'+'客户端'+str(address)+'加入tx')
@@ -495,7 +449,7 @@ def main_save_dict_var():
 
 if __name__ == '__main__':
     port = 2025
-    tocken = 'LTtx'
+    tocken = 'test'
     ip = get_local_ip()
     
     id_code = 0
@@ -513,12 +467,11 @@ if __name__ == '__main__':
     recv_buffer_size = 1024*1024*100
     server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buffer_size)
-    server.settimeout(5)
+    # server.settimeout(5)
     server.bind((ip,port))
-    # server.bind(('localhost',port))
     server.listen(5)
     print('\n\r')
-    print('#'*20,'服务器信息V4','#'*20)
+    print('#'*20,'服务器信息V5','#'*20)
     print('ip:%s'%(ip),' '*10,'port:%s'%(port),' '*10,'tocken:%s'%(tocken))
     # threading.Thread(target=main_test).start()
     threading.Thread(target=main_show).start()

@@ -15,10 +15,6 @@ import time
 import os
 import hashlib
 
-#客户端想要发消息和收消息同时进行,需要使用多线程达到并发效果
-
-
-
 class txl:
     def __init__(self,ip,port,tocken):
         self.ip = ip
@@ -28,11 +24,13 @@ class txl:
         self.txg = False
         self.Q = queue.Queue(maxsize=0)
         self.__tx = False
+        self.__tx_plus = False
         self.push_count = 0
         self.timeout = 2
         self.heartbeat = 1
-        print('#'*20,'通信系统V3加载成功','#'*20)
+        print('#'*20,'通信系统V4加载成功','#'*20)
         self.tx_que = queue.Queue(maxsize=0)
+        self.tx_que_plus = queue.Queue(maxsize=0)
         self.file_tx = None
         
     
@@ -171,11 +169,14 @@ class txl:
             msg = '服务端该文件不存在,请先上传'
             print(code,msg)
             return code,msg
-
+    
+    def get_nowtime(self,):
+        return time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())
+    
     def start_tx(self):
         while True:
             try:
-                print('正在连接(%s,%s)PG服务器,请稍后'%(self.ip,self.port))
+                print(self.get_nowtime(),'start_tx正在连接(%s,%s)LTtx服务器,请稍后'%(self.ip,self.port))
                 if self.__tx == False:
                     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
                     client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192*100)
@@ -183,7 +184,7 @@ class txl:
                     self.__tx = client
                     tem_dict = {'con_type':'put_mode','tocken':self.tocken}
                     self.__tx.sendall(json.dumps(tem_dict).encode('utf-8'))
-                    if self.recv_msg_start_tx():
+                    if self.recv_msg_start_tx(client):
                         t0 = threading.Thread(target=self.main_tx_que)
                         # t0.setDaemon(True)
                         t0.start()
@@ -204,8 +205,42 @@ class txl:
             except Exception as e:
                 if type(e) == ConnectionRefusedError:
                     print('服务端未启动,将在1秒后继续尝试start_tx')
-                    time.sleep(1)
-
+                time.sleep(1)
+    
+    def start_plus(self,):
+        while True:
+            try:
+                print(self.get_nowtime(),'start_flash正在连接(%s,%s)LTtx服务器,请稍后'%(self.ip,self.port))
+                if self.__tx_plus == False:
+                    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+                    client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192*100)
+                    client.connect((self.ip,self.port))
+                    self.__tx_plus = client
+                    tem_dict = {'con_type':'plus_mode','tocken':self.tocken}
+                    self.__tx_plus.sendall(json.dumps(tem_dict).encode('utf-8'))
+                    if self.recv_msg_start_tx(client):
+                        t0 = threading.Thread(target=self.main_tx_que_plus)
+                        t0.start()
+                        thp0 = threading.Thread(target = self.start_tx_hearbeat_plus)
+                        thp0.start()
+                        break
+                    else:
+                        self.__tx_plus.shutdown(socket.SHUT_RDWR)
+                        self.__tx_plus = False 
+                else:
+                    code = -1
+                    msg = '请勿重复连接'
+                    result = {'code':code,'msg':msg}
+                    print(result)
+                    return result
+                
+            except Exception as e:
+                if type(e) == ConnectionRefusedError:
+                    print('服务端未启动,将在1秒后继续尝试start_plus')
+                print(e)
+                time.sleep(1)
+        # pass
+    
     def start_txg(self,channel_list,pwd=''):
         while True:
             try:
@@ -248,31 +283,28 @@ class txl:
             if self.__tx:
                 self.push('heartbeat','test','test22')
                 time.sleep(self.timeout)
+                # time.sleep(1)
+            else:
+                break
+    
+    def start_tx_hearbeat_plus(self):
+        print('start_tx_plus的heartbeat子线程启动')
+        while 1:
+            if self.__tx_plus:
+                self.push_plus('heartbeat','t','test22')
+                time.sleep(2)
             else:
                 break
             
     def __start_thread(self,target,args):
         thp1 = threading.Thread(target=target,args=args)
-        thp1.setDaemon(True)
+        # thp1.setDaemon(True)
         thp1.start()        
       
-    def connect_judge(self,client,address):
-        while True:
-            try:
-                data = client.recv(1024).decode('utf-8')
-                dict_data = json.loads(data)
-                code = dict_data['code']
-                print(dict_data)
-                if code =='-1':
-                    break
-                elif code =='0':
-                    self.__tx = client
-            except:
-                pass
     
-    def recv_msg_start_tx(self):
+    def recv_msg_start_tx(self,client):
         
-        data = self.__tx.recv(1024)
+        data = client.recv(1024)
         dict_data = json.loads(data)
         code = dict_data['code']
         self.id_code = str(dict_data['id_code'])+'@'
@@ -473,8 +505,48 @@ class txl:
                 self.send_data(self.__tx,msg)
                 
         except Exception as e:
-            raise ConnectionAbortedError('与服务器连接断开,push函数出错')
+            print(e)
+            raise ConnectionAbortedError('与服务器连接断开,push函数出错,请注意你传入的数据类型必须为字符串,请查看上方的报错内容')
             print('chucuole')
+    
+    def push_plus(self,key,data,who=''):
+        '''
+        超级push函数，会比push函数更快，效率更高，确保你传入的参数均为字符串，否则推送不成功
+
+        Parameters
+        ----------
+        key : TYPE
+            DESCRIPTION.
+        data : TYPE
+            DESCRIPTION.
+        who : TYPE, optional
+            DESCRIPTION. The default is None.
+
+        Raises
+        ------
+        ConnectionAbortedError
+            DESCRIPTION.
+
+        Returns
+        -------
+        result : TYPE
+            DESCRIPTION.
+
+        '''
+        try:
+            if self.__tx_plus == False:
+                code = -1
+                msg = '当前tx_plus未连接,请先执行start_tx_plus()'
+                result = {'code':code,'msg':msg}
+                return result
+            else:
+                msg = key+'|'+data+':who:'+who
+                self.send_data_plus(self.__tx_plus,msg)    
+        except Exception as e:
+            print(e)
+            print('chucuole')
+            raise ConnectionAbortedError('与服务器连接断开,push_plus函数出错,请确保你传入的参数均为字符串，请查看上方的报错内容')
+            
     
     def recv_msg_put(self,client):
         data = client.recv(1024)
@@ -483,6 +555,9 @@ class txl:
     
     def send_data(self,client, msg):
         self.tx_que.put(msg)
+    
+    def send_data_plus(self,client, msg):
+        self.tx_que_plus.put(msg)
     
     def main_tx_que(self):
         while True:
@@ -497,6 +572,21 @@ class txl:
                 self.__tx = False
                 self.start_tx()
                 self.tx_que.put(old_msg)
+                break
+            
+    def main_tx_que_plus(self):
+        while True:
+            try:
+                old_msg = self.tx_que_plus.get()
+                msg=old_msg.encode('utf-8')
+                data_len = len(msg)
+                struct_bytes = struct.pack('Q', data_len)
+                self.__tx_plus.sendall(struct_bytes)
+                self.__tx_plus.sendall(msg)
+            except:
+                self.__tx_plus = False
+                self.start_plus()
+                self.tx_que_plus.put(old_msg)
                 break
     
     def recv_msg_broadcast(self,client):
@@ -535,6 +625,31 @@ class txl:
         result = {'code':code,'msg':msg}
         return result
     
+    def close_tx_plus(self,):
+        '''
+        关闭push_plus功能
+
+        Returns
+        -------
+        None.
+
+        '''
+        if self.__tx_plus == False:
+            code = -1
+            msg = '当前tx_plus功能未开启'
+            result = {'code':code,'msg':msg}
+            print(result)
+            return result
+        else:
+            self.__tx_plus.close()
+            self.__tx_plus = False
+            
+            code = 0
+            msg = 'tx_plus关闭成功'
+            result = {'code':code,'msg':msg}
+            print(result)
+            return result
+    
     def close_txg(self):
         if self.txg == False:
             code = -1
@@ -553,18 +668,72 @@ class txl:
         return result
 
 if __name__=='__main__':   
-    # ip = '172.31.30.136'
-    # ip = '192.168.1.65'
-    ip = '192.168.1.131'
+    ip = '192.168.1.65'
+    # ip = '192.168.1.246'
+    # ip = 'localhost'
     # ip = '192.168.166.198'
-    port = 2025
-    tocken='LTtx'
+    port = 2028
+    tocken='test'
 
     tx1=txl(ip,port,tocken)
-    tx1.send_file('./show.py')
-    tx1.recv_file('show.py','./new_data')
+    # tx1.send_file('./show.py')
+    # tx1.recv_file('show.py','./new_data')
     tx1.start_tx()
-    # # tx1.start_txg('hq_center@cb_1min_klines_data_center@cb_hq_center')
+    # tx1.start_txg('litao')
+    tx1.start_plus()
+    
+    def show():
+        while True:
+            data = tx1.Q.get().split('|')
+            t1 = time.time()
+            print(data)
+            # print(t1-float(data[1]))
+    # threading.Thread(target = show).start()
+    # tx1.push('test',str(time.time()),'litao')
+    # time.sleep(1)
+    # tx1.push_plus('key', str(time.time()),'litao')
+    def run_for_test():
+        print('开始测试\n\r')
+        print('测试push效率')
+        t1 = time.time()
+        for i in range(1000000):
+            tx1.push('key', str(i),'litao2')
+        print('push方法调用100万次耗时：')
+        print(time.time()-t1)
+        t1 = time.time()
+        time.sleep(2)
+        while 1:
+            if tx1.tx_que.qsize() <= 0:
+                break
+            else:
+                time.sleep(1)
+        print('100万条数据用push推送到服务端耗时：')
+        print(time.time() - t1)
+        print('#'*10)
+        print('测试push_plus效率')
+        t1 = time.time()
+        for i in range(1000000):
+            tx1.push_plus('key', str(i),'litao2')
+        print('push_plus方法调用100万次耗时：')
+        print(time.time()-t1)
+        t1 = time.time()
+        time.sleep(2)
+        while 1:
+            if tx1.tx_que_plus.qsize() <= 0:
+                break
+            else:
+                time.sleep(1)
+        print('100万条数据用push_plus推送到服务端耗时：')
+        print(time.time() - t1)
+    for i in range(4):
+        print('第%s次测试:'%(i))
+        run_for_test()
+        print('\n\r')
+        
+    
+    
+    
+    # tx1.start_txg('hq_center@cb_1min_klines_data_center@cb_hq_center')
     # tx1.start_txg('hq_center@cb_1min_klines_data_center')
     
     # def show():
