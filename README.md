@@ -115,15 +115,11 @@ tx1.start_plus()                             #开启push_plus()方法，提升�
 祝大家使用愉快，欢迎加本人VX，共同探讨量化交易的开发乐趣。
 
 #### LTtx交流群：
-![图片](https://github.com/95ge/LTtx/assets/92923254/de977e91-ad48-4cdd-8777-d0c1d6ff68ae)
+![图片](https://github.com/95ge/LTtx/assets/92923254/59877dba-6988-4ede-920d-6691266440ca)
 
-
-
-#### 本人VX：
-![图片](https://github.com/95ge/LTtx/assets/92923254/fb34a8b2-8d34-45b0-827c-aed80f2dd788)
 
 #### 如果觉得有用，请作者喝杯霸王茶姬吧
-![图片](https://github.com/95ge/LTtx/assets/92923254/7bdbb3ce-1c58-4546-906c-029e5097a3a6)
+![图片](https://github.com/95ge/LTtx/assets/92923254/f811f343-cc88-42ff-b82e-371404c58437)
 
 ## 本项目star:
 [![Stars](https://img.shields.io/github/stars/95ge/LTtx.svg)](https://github.com/95ge/LTtx)
