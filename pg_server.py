@@ -15,7 +15,12 @@ import queue
 import tabulate
 import hashlib
 import psutil
-import zmq
+try:
+    import zmq
+except:
+    print('本机没有安装ZeroMQ，无法使用MQ模式，请安装后启动，其他功能不影响')
+    time.sleep(2)
+    print('开始启动')
 
 
 
@@ -355,6 +360,7 @@ def main_push_client(tem_que,client):
             send_data_to_client(client, msg)
         except Exception as e:
             sys_show_on('有broadcast客户端退出')
+            client.close()
             del dict_client_que[client]
             break
             
@@ -449,12 +455,12 @@ def main_show():
         print('#'*20,'服务器信息V5','#'*20)
         print('ip:%s'%(ip),' '*10,'port:%s'%(port),' '*10,'tocken:%s'%(tocken))
         
-        print('#'*20,'当前PG状态','#'*20)
+        print('#'*20,'当前LTtx状态','#'*20)
         print('当前TX连接数：%s                 当前TXG信道数'%(len(dict_client)),len(dict_client_push_group))
         
         print(tabulate.tabulate(table_data, headers=['信道名称', '当前连接数', '信道队列数据量','备注'], tablefmt='fancy_grid',stralign='wrap'))
 
-        print('%sPG系统最新日志信息：'%(time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+        print('%sLTtx系统最新日志信息：'%(time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
         print('#'*30)
         for i in connect_show_list:
             print(i)
@@ -503,7 +509,7 @@ def main_zmq_mode(zmq_xsub_port,zmq_xpub_port):
 if __name__ == '__main__':
     import multiprocessing
     port = 2025
-    tocken = 'test'
+    tocken = 'LTtx'
     ip = get_local_ip()
     #ZMQ的订阅端口
     zmq_xsub_port = 5555
@@ -542,16 +548,20 @@ if __name__ == '__main__':
     dict_client_status = {}
     dict_var = load_dict_var()#保存云变量
     recv_buffer_size = 1024*1024*100
+    # server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    # server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buffer_size,)
+    # server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buffer_size)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buffer_size,)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.settimeout(5)
     server.bind((ip,port))
     # server.bind(('localhost',port))
     server.listen(5)
     print('\n\r')
-    print('#'*20,'服务器信息V4','#'*20)
+    print('#'*20,'服务器信息V6','#'*20)
     print('ip:%s'%(ip),' '*10,'port:%s'%(port),' '*10,'tocken:%s'%(tocken))
-    # threading.Thread(target=main_show).start()
+    threading.Thread(target=main_show).start()
     threading.Thread(target = main_heartbeat).start()
     threading.Thread(target = main_save_dict_var).start()
     wait_accept(server)
